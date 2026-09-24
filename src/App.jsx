@@ -148,9 +148,8 @@ function App() {
         {/* DASHBOARD */}
         {activePage === "Dashboard" && (
           <Dashboard
-            onNewOrder={() =>
-              setOpenNewOrder(true)
-            }
+            onNewOrder={() => setOpenNewOrder(true)}
+            onNavigate={handleMenuClick}
           />
         )}
 
@@ -306,7 +305,7 @@ function Topbar() {
   );
 }
 
-function Dashboard({ onNewOrder }) {
+function Dashboard({ onNewOrder, onNavigate }) {
   return (
     <div className="dashboard-content">
       <div className="welcome-section">
@@ -375,24 +374,28 @@ function Dashboard({ onNewOrder }) {
             icon={Users}
             title="New Customer"
             description="Add a customer"
+            onClick={() => onNavigate("Customers")}
           />
 
           <QuickAction
             icon={FileText}
             title="Create Quote"
             description="Prepare a quotation"
+            onClick={() => onNavigate("Quotations")}
           />
 
           <QuickAction
             icon={ClipboardList}
             title="New Order"
             description="Create a new job"
+            onClick={onNewOrder}
           />
 
           <QuickAction
             icon={Printer}
             title="Production"
             description="View production jobs"
+            onClick={() => onNavigate("Production")}
           />
         </div>
       </div>
@@ -411,6 +414,7 @@ function Dashboard({ onNewOrder }) {
             <button
               className="text-button"
               type="button"
+              onClick={() => onNavigate("Orders / Jobs")}
             >
               View All
               <ArrowUpRight size={16} />
@@ -565,11 +569,13 @@ function QuickAction({
   icon: Icon,
   title,
   description,
+  onClick,
 }) {
   return (
     <button
       className="quick-action"
       type="button"
+      onClick={onClick}
     >
       <div className="quick-action-icon">
         <Icon size={20} />
