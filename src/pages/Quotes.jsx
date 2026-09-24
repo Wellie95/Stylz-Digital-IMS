@@ -3,6 +3,7 @@ import {
   defaultCustomers,
   CUSTOMER_STORAGE_KEY,
 } from "../data/customers";
+import { products } from "../data/products";
 
 const company = {
   name: "STYLZ DIGITAL SOLUTIONS",
