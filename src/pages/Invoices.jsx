@@ -341,6 +341,21 @@ function Invoices() {
   const [customers, setCustomers] =
     useState(getInitialCustomers);
 
+  const [productCatalog, setProductCatalog] =
+    useState(products);
+
+  useEffect(() => {
+    try {
+      const savedProducts = localStorage.getItem("stylz_ims_products");
+      if (savedProducts) {
+        const parsed = JSON.parse(savedProducts);
+        if (Array.isArray(parsed)) setProductCatalog(parsed);
+      }
+    } catch (error) {
+      console.error("Could not load product catalog:", error);
+    }
+  }, []);
+
   const [searchTerm, setSearchTerm] =
     useState("");
 
@@ -757,10 +772,10 @@ function Invoices() {
   const search = normalizeText(searchValue);
 
   if (!search) {
-    return products.slice(0, 8);
+    return productCatalog.slice(0, 8);
   }
 
-  return products
+  return productCatalog
     .filter((product) =>
       normalizeText(product.name).includes(search)
     )
@@ -792,7 +807,7 @@ const handleProductDescriptionChange = (
   itemId,
   value
 ) => {
-  const exactProduct = products.find(
+  const exactProduct = productCatalog.find(
     (product) =>
       normalizeText(product.name) ===
       normalizeText(value)
