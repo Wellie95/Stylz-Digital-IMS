@@ -1109,6 +1109,46 @@ const handleProductDescriptionChange = (
       );
     }
 
+    // Sync this invoice back to its source order.
+    // This keeps the Order -> Invoice relationship visible
+    // throughout the IMS.
+    if (invoice.sourceOrderId || invoice.sourceOrderNumber) {
+      try {
+        const savedOrders = localStorage.getItem("stylz_ims_orders");
+        const orders = savedOrders ? JSON.parse(savedOrders) : [];
+
+        if (Array.isArray(orders)) {
+          const updatedOrders = orders.map((order) => {
+            const matches =
+              (invoice.sourceOrderId &&
+                (order.id === invoice.sourceOrderId ||
+                  order.orderNumber === invoice.sourceOrderId)) ||
+              (invoice.sourceOrderNumber &&
+                order.orderNumber === invoice.sourceOrderNumber);
+
+            return matches
+              ? {
+                  ...order,
+                  invoiceId: invoice.id,
+                  invoiceNumber: invoice.invoiceNumber,
+                  invoiceStatus:
+                    calculateStatus(invoice) === "Paid"
+                      ? "Paid"
+                      : "Invoiced",
+                }
+              : order;
+          });
+
+          localStorage.setItem(
+            "stylz_ims_orders",
+            JSON.stringify(updatedOrders)
+          );
+        }
+      } catch (error) {
+        console.error("Could not sync invoice to source order:", error);
+      }
+    }
+
     // Sync recorded invoice payments into the Payments module.
     try {
       const savedPayments = localStorage.getItem(PAYMENT_STORAGE_KEY);
@@ -1167,6 +1207,42 @@ const handleProductDescriptionChange = (
             item.id !== invoice.id
         )
     );
+
+    // Remove the invoice link from its source order.
+    if (invoice.sourceOrderId || invoice.sourceOrderNumber) {
+      try {
+        const savedOrders = localStorage.getItem("stylz_ims_orders");
+        const orders = savedOrders ? JSON.parse(savedOrders) : [];
+
+        if (Array.isArray(orders)) {
+          const updatedOrders = orders.map((order) => {
+            const matches =
+              (invoice.sourceOrderId &&
+                (order.id === invoice.sourceOrderId ||
+                  order.orderNumber === invoice.sourceOrderId)) ||
+              (invoice.sourceOrderNumber &&
+                order.orderNumber === invoice.sourceOrderNumber);
+
+            if (!matches) return order;
+
+            const next = { ...order };
+            delete next.invoiceId;
+            delete next.invoiceNumber;
+            delete next.invoiceStatus;
+            return next;
+          });
+
+          localStorage.setItem(
+            "stylz_ims_orders",
+            JSON.stringify(updatedOrders)
+          );
+        }
+      } catch (error) {
+        console.error("Could not unlink invoice from source order:", error);
+      }
+    }
+
+    window.dispatchEvent(new Event("stylz-data-updated"));
 
     if (
       selectedInvoice?.id ===
