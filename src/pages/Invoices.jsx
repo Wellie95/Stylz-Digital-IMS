@@ -2116,9 +2116,30 @@ ${companyDetails.website}`;
             padding: 12mm;
           }
 
-          .invoice-preview-toolbar,
-          .invoice-modal-overlay {
+          .invoice-preview-toolbar {
             display: none !important;
+          }
+
+          .invoice-modal-overlay {
+            display: block !important;
+            position: static !important;
+            inset: auto !important;
+            padding: 0 !important;
+            background: white !important;
+            overflow: visible !important;
+          }
+
+          .invoice-preview-modal {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            max-width: none !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            overflow: visible !important;
           }
 
           @page {
