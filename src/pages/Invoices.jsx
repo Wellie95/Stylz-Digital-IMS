@@ -21,6 +21,7 @@ const INVOICE_STORAGE_KEY = "stylz_ims_invoices";
 const CUSTOMER_STORAGE_KEY = "stylz_ims_customers";
 const INVOICE_FROM_ORDER_KEY =
   "stylz_ims_invoice_from_order";
+const PAYMENT_STORAGE_KEY = "stylz_ims_payments";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -381,6 +382,8 @@ function Invoices() {
     useState(emptyCustomer);
 
   const [formData, setFormData] = useState({
+    sourceOrderId: "",
+    sourceOrderNumber: "",
     invoiceNumber: "",
     date: today,
     dueDate: today,
@@ -519,6 +522,8 @@ function Invoices() {
       });
 
       setFormData({
+        sourceOrderId: order.id || "",
+        sourceOrderNumber: order.orderNumber || "",
         invoiceNumber:
           getNextInvoiceNumber(invoices),
 
@@ -1015,6 +1020,10 @@ const handleProductDescriptionChange = (
     }
 
     const baseInvoice = {
+      sourceOrderId:
+        formData.sourceOrderId || "",
+      sourceOrderNumber:
+        formData.sourceOrderNumber || "",
       invoiceNumber:
         formData.invoiceNumber ||
         getNextInvoiceNumber(
@@ -1098,6 +1107,43 @@ const handleProductDescriptionChange = (
           invoice,
         ]
       );
+    }
+
+    // Sync recorded invoice payments into the Payments module.
+    try {
+      const savedPayments = localStorage.getItem(PAYMENT_STORAGE_KEY);
+      const payments = savedPayments ? JSON.parse(savedPayments) : [];
+      if (Array.isArray(payments)) {
+        const paymentId = "PAY-" + invoice.id;
+        const paidAmount = Number(invoice.amountPaid || 0);
+        const nextPayments = payments.filter(
+          (payment) =>
+            payment.invoiceId !== invoice.id &&
+            payment.id !== paymentId
+        );
+
+        if (paidAmount > 0) {
+          nextPayments.push({
+            id: paymentId,
+            invoiceId: invoice.id,
+            reference: invoice.invoiceNumber,
+            customer: invoice.customer,
+            amount: paidAmount,
+            method: "Other",
+            date: invoice.date || today,
+            status: paidAmount >= calculateTotal(invoice) ? "Paid" : "Part Paid",
+            source: "Invoice",
+          });
+        }
+
+        localStorage.setItem(
+          PAYMENT_STORAGE_KEY,
+          JSON.stringify(nextPayments)
+        );
+        window.dispatchEvent(new Event("stylz-data-updated"));
+      }
+    } catch (error) {
+      console.error("Could not sync invoice payment:", error);
     }
 
     setShowForm(false);
