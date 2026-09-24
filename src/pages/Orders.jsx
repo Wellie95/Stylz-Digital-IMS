@@ -607,6 +607,41 @@ function Orders({
             : item
         )
       );
+
+      // Keep the matching production job synchronized with the order.
+      try {
+        const savedProduction = localStorage.getItem("stylz_ims_production");
+        const production = savedProduction ? JSON.parse(savedProduction) : [];
+        if (Array.isArray(production)) {
+          const existing = production.find((job) => job.orderId === order.id);
+          if (existing) {
+            const updatedProduction = production.map((job) =>
+              job.orderId === order.id
+                ? {
+                    ...job,
+                    job: order.jobName,
+                    customer: order.customer,
+                    status:
+                      order.status === "Completed"
+                        ? "Completed"
+                        : order.status === "In Production"
+                          ? "In Production"
+                          : job.status,
+                    dueDate: order.dueDate,
+                    assignedTo: order.assignedTo || "",
+                  }
+                : job
+            );
+            localStorage.setItem(
+              "stylz_ims_production",
+              JSON.stringify(updatedProduction)
+            );
+            window.dispatchEvent(new Event("stylz-data-updated"));
+          }
+        }
+      } catch (error) {
+        console.error("Could not sync production job:", error);
+      }
     } else {
       setOrders((previous) => [
         ...previous,
@@ -629,6 +664,38 @@ function Orders({
               : customer
           )
         );
+      }
+
+      // Every new order automatically enters the production queue.
+      try {
+        const savedProduction = localStorage.getItem("stylz_ims_production");
+        const production = savedProduction ? JSON.parse(savedProduction) : [];
+        const productionJob = {
+          id: Date.now() + Math.random(),
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          job: order.jobName,
+          customer: order.customer,
+          status:
+            order.status === "Completed"
+              ? "Completed"
+              : order.status === "In Production"
+                ? "In Production"
+                : "Queued",
+          progress: order.status === "Completed" ? 100 : 0,
+          dueDate: order.dueDate,
+          assignedTo: order.assignedTo || "",
+        };
+        const nextProduction = Array.isArray(production)
+          ? [...production, productionJob]
+          : [productionJob];
+        localStorage.setItem(
+          "stylz_ims_production",
+          JSON.stringify(nextProduction)
+        );
+        window.dispatchEvent(new Event("stylz-data-updated"));
+      } catch (error) {
+        console.error("Could not create production job:", error);
       }
     }
 
