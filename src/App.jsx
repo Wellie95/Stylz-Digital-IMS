@@ -24,6 +24,7 @@ import Quotes from "./pages/Quotes";
 import Invoices from "./pages/Invoices";
 import Orders from "./pages/Orders";
 import Products from "./pages/Products";
+import Management from "./pages/Management";
 
 import "./App.css";
 
@@ -194,17 +195,17 @@ function App() {
           <Products />
         )}
 
-        {/* FUTURE MODULES */}
-        {activePage !== "Dashboard" &&
-          activePage !== "Customers" &&
-          activePage !== "Quotations" &&
-          activePage !== "Orders / Jobs" &&
-          activePage !== "Invoices" &&
-          activePage !== "Products & Prices" && (
-            <PlaceholderPage
-              title={activePage}
-            />
-          )}
+        {["Production", "Payments", "Inventory", "Expenses", "Staff"].includes(activePage) && (
+          <Management module={activePage} />
+        )}
+
+        {activePage === "Reports" && <Reports />}
+
+        {activePage === "Settings" && <SettingsPage />}
+
+        {!["Dashboard", "Customers", "Quotations", "Orders / Jobs", "Invoices", "Products & Prices", "Production", "Payments", "Inventory", "Expenses", "Staff", "Reports", "Settings"].includes(activePage) && (
+          <PlaceholderPage title={activePage} />
+        )}
       </main>
     </div>
   );
@@ -632,6 +633,31 @@ function SystemStatus({
       </div>
     </div>
   );
+}
+
+function Reports() {
+  const read=(key)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):[]}catch{return[]}};
+  const orders=read("stylz_ims_orders"), invoices=read("stylz_ims_invoices"), payments=read("stylz_ims_payments"), expenses=read("stylz_ims_expenses"), production=read("stylz_ims_production");
+  const sum=(items,key)=>items.reduce((s,x)=>s+Number(x[key]||0),0);
+  return <div className="page">
+    <div className="page-header"><div><h1>Reports</h1><p>Live summaries from your STYLZ-IMS browser data.</p></div><button className="secondary-button" onClick={()=>window.print()}><Printer size={17}/> Print Report</button></div>
+    <div className="stats-grid">
+      <StatCard title="Orders" value={orders.length} icon={ClipboardList} description="Recorded jobs"/>
+      <StatCard title="Invoices" value={invoices.length} icon={Receipt} description={"Value: R "+sum(invoices,"total").toFixed(2)}/>
+      <StatCard title="Payments" value={"R "+sum(payments,"amount").toFixed(2)} icon={CreditCard} description="Recorded payments"/>
+      <StatCard title="Expenses" value={"R "+sum(expenses,"amount").toFixed(2)} icon={Wallet} description="Recorded expenses"/>
+    </div>
+    <div className="dashboard-grid">
+      <div className="dashboard-panel"><div className="panel-header"><div><h2>Operations</h2><p>Current business activity.</p></div></div><div className="system-status"><div className="status-grid"><SystemStatus title="Production Jobs" status={String(production.length)}/><SystemStatus title="Orders / Jobs" status={String(orders.length)}/><SystemStatus title="Invoices" status={String(invoices.length)}/></div></div></div>
+      <div className="dashboard-panel"><div className="panel-header"><div><h2>Financial Snapshot</h2><p>Recorded values only.</p></div></div><div className="production-list"><div className="production-item"><div className="production-top"><strong>Payments</strong><strong>R {sum(payments,"amount").toFixed(2)}</strong></div></div><div className="production-item"><div className="production-top"><strong>Expenses</strong><strong>R {sum(expenses,"amount").toFixed(2)}</strong></div></div></div></div>
+    </div>
+  </div>;
+}
+
+function SettingsPage() {
+  const [form,setForm]=useState(()=>{try{return JSON.parse(localStorage.getItem("stylz_ims_settings"))||{phone:"084 379 3246 / 062 617 3145",email:"info@stylzdigitalsolutions.co.za",website:"www.stylzdigital.co.za",address:"118 Village Street, Randfontein, 1759, South Africa"}}catch{return{}}});
+  const save=()=>{localStorage.setItem("stylz_ims_settings",JSON.stringify(form));alert("Settings saved.");};
+  return <div className="page"><div className="page-header"><div><h1>Settings</h1><p>Manage the business contact information used by STYLZ-IMS.</p></div></div><div className="data-panel"><div className="panel-header"><div><h2>Business Details</h2><p>These settings are stored locally for this browser.</p></div></div><div className="form-grid">{[["phone","Phone"],["email","Email"],["website","Website"],["address","Address"]].map(([k,l])=><div className="form-group" key={k}><label>{l}</label><input value={form[k]||""} onChange={e=>setForm({...form,[k]:e.target.value})}/></div>)}</div><div className="modal-actions"><button className="stylz-primary-btn" onClick={save}><CheckCircle2 size={17}/> Save Settings</button></div></div></div>;
 }
 
 function PlaceholderPage({
