@@ -185,6 +185,9 @@ function Orders({
   const [customers, setCustomers] =
     useState(getInitialCustomers);
 
+  const [invoiceVersion, setInvoiceVersion] =
+    useState(0);
+
   const [searchTerm, setSearchTerm] =
     useState("");
 
@@ -218,6 +221,31 @@ function Orders({
       JSON.stringify(orders)
     );
   }, [orders]);
+
+  useEffect(() => {
+    const refreshInvoices = () =>
+      setInvoiceVersion((value) => value + 1);
+
+    window.addEventListener(
+      "storage",
+      refreshInvoices
+    );
+    window.addEventListener(
+      "stylz-data-updated",
+      refreshInvoices
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        refreshInvoices
+      );
+      window.removeEventListener(
+        "stylz-data-updated",
+        refreshInvoices
+      );
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(
@@ -284,6 +312,33 @@ function Orders({
     statusFilter,
     priorityFilter,
   ]);
+
+  const getInvoiceForOrder = (order) => {
+    void invoiceVersion;
+
+    try {
+      const savedInvoices = localStorage.getItem(
+        "stylz_ims_invoices"
+      );
+      const invoices = savedInvoices
+        ? JSON.parse(savedInvoices)
+        : [];
+
+      if (!Array.isArray(invoices)) return null;
+
+      return invoices.find(
+        (invoice) =>
+          (order.invoiceId &&
+            invoice.id === order.invoiceId) ||
+          (invoice.sourceOrderId &&
+            invoice.sourceOrderId === order.id) ||
+          (invoice.sourceOrderNumber &&
+            invoice.sourceOrderNumber === order.orderNumber)
+      ) || null;
+    } catch {
+      return null;
+    }
+  };
 
   const stats = useMemo(() => {
     return {
@@ -1514,20 +1569,44 @@ function Orders({
                               <Eye size={16} />
                             </button>
 
-                            <button
-  className="order-icon-btn"
-  title="Create Invoice"
-  onClick={() =>
-    onCreateInvoice?.(order)
-  }
-  style={{
-    color: "#2563eb",
-    borderColor: "#93c5fd",
-    background: "#eff6ff",
-  }}
->
-  <Receipt size={17} />
-</button>
+                            {(() => {
+                              const invoice =
+                                getInvoiceForOrder(order);
+
+                              return (
+                                <button
+                                  className="order-icon-btn"
+                                  title={
+                                    invoice
+                                      ? `Invoiced: ${invoice.invoiceNumber}`
+                                      : "Create Invoice"
+                                  }
+                                  onClick={() => {
+                                    if (invoice) {
+                                      alert(
+                                        `This order already has invoice ${invoice.invoiceNumber}.`
+                                      );
+                                      return;
+                                    }
+
+                                    onCreateInvoice?.(order);
+                                  }}
+                                  style={{
+                                    color: invoice
+                                      ? "#166534"
+                                      : "#2563eb",
+                                    borderColor: invoice
+                                      ? "#86efac"
+                                      : "#93c5fd",
+                                    background: invoice
+                                      ? "#f0fdf4"
+                                      : "#eff6ff",
+                                  }}
+                                >
+                                  <Receipt size={17} />
+                                </button>
+                              );
+                            })()}
 
                             <button
                               className="order-icon-btn"
