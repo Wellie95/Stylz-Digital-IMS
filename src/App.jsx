@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -307,6 +307,156 @@ function Topbar() {
 }
 
 function Dashboard({ onNewOrder, onNavigate }) {
+  const read = (key) => {
+    try {
+      const value = localStorage.getItem(key);
+      return value ? JSON.parse(value) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [dataVersion, setDataVersion] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setDataVersion((v) => v + 1);
+    window.addEventListener("storage", refresh);
+    window.addEventListener("stylz-data-updated", refresh);
+
+    const interval = window.setInterval(refresh, 1500);
+
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("stylz-data-updated", refresh);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const data = useMemo(() => {
+    void dataVersion;
+
+    const orders = read("stylz_ims_orders");
+    const invoices = read("stylz_ims_invoices");
+    const payments = read("stylz_ims_payments");
+    const production = read("stylz_ims_production");
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    const money = (value) =>
+      "R" +
+      Number(value || 0).toLocaleString("en-ZA", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+    const invoiceTotal = (invoice) => {
+      if (invoice.total !== undefined) {
+        return Number(invoice.total || 0);
+      }
+
+      const subtotal = (invoice.items || []).reduce(
+        (sum, item) =>
+          sum +
+          Number(item.quantity || 0) *
+            Number(item.price || 0),
+        0
+      );
+
+      return Math.max(
+        subtotal - Number(invoice.discount || 0),
+        0
+      );
+    };
+
+    const activeOrders = orders.filter(
+      (order) =>
+        !["Completed", "Cancelled"].includes(
+          order.status
+        )
+    );
+
+    const productionActive = production.filter(
+      (job) =>
+        !["Completed"].includes(job.status)
+    );
+
+    const todayPayments = payments.filter(
+      (payment) =>
+        payment.date === today
+    );
+
+    const todayInvoicePayments = invoices
+      .filter((invoice) => invoice.date === today)
+      .reduce(
+        (sum, invoice) =>
+          sum + Number(invoice.amountPaid || 0),
+        0
+      );
+
+    const todaySales =
+      todayPayments.reduce(
+        (sum, payment) =>
+          sum + Number(payment.amount || 0),
+        0
+      ) + todayInvoicePayments;
+
+    const outstanding = invoices.reduce(
+      (sum, invoice) =>
+        sum +
+        Math.max(
+          invoiceTotal(invoice) -
+            Number(invoice.amountPaid || 0),
+          0
+        ),
+      0
+    );
+
+    const recentOrders = [...orders]
+      .sort(
+        (a, b) =>
+          new Date(
+            b.orderDate || b.createdAt || 0
+          ) -
+          new Date(
+            a.orderDate || a.createdAt || 0
+          )
+      )
+      .slice(0, 6)
+      .map((order) => ({
+        id:
+          order.orderNumber ||
+          order.id ||
+          "—",
+        customer:
+          order.customer ||
+          "Walk-in Customer",
+        item:
+          order.jobName ||
+          order.description ||
+          "Printing Services",
+        amount:
+          order.amount ||
+          order.total ||
+          "—",
+        status:
+          order.status || "Pending",
+      }));
+
+    return {
+      money,
+      orders,
+      invoices,
+      payments,
+      production,
+      activeOrders,
+      productionActive,
+      todaySales,
+      outstanding,
+      recentOrders,
+      today,
+    };
+  }, [dataVersion]);
+
   return (
     <div className="dashboard-content">
       <div className="welcome-section">
@@ -332,30 +482,42 @@ function Dashboard({ onNewOrder, onNavigate }) {
       <div className="stats-grid">
         <StatCard
           title="Today's Sales"
-          value="R0.00"
+          value={data.money(data.todaySales)}
           icon={CreditCard}
-          description="No sales recorded today"
+          description={
+            data.todaySales > 0
+              ? "Payments recorded today"
+              : "No sales recorded today"
+          }
         />
 
         <StatCard
           title="Active Orders"
-          value="0"
+          value={data.activeOrders.length}
           icon={ClipboardList}
-          description="Orders currently active"
+          description={
+            data.activeOrders.length === 1
+              ? "1 order currently active"
+              : "Orders currently active"
+          }
         />
 
         <StatCard
           title="Production Queue"
-          value="0"
+          value={data.productionActive.length}
           icon={Printer}
-          description="Jobs waiting for production"
+          description={
+            data.productionActive.length === 1
+              ? "1 job in production"
+              : "Jobs currently in production"
+          }
         />
 
         <StatCard
           title="Outstanding"
-          value="R0.00"
+          value={data.money(data.outstanding)}
           icon={Wallet}
-          description="Customer balances"
+          description="Unpaid customer balances"
         />
       </div>
 
@@ -363,10 +525,7 @@ function Dashboard({ onNewOrder, onNavigate }) {
         <div className="section-heading">
           <div>
             <h2>Quick Actions</h2>
-
-            <p>
-              Common tasks for your business.
-            </p>
+            <p>Common tasks for your business.</p>
           </div>
         </div>
 
@@ -406,16 +565,15 @@ function Dashboard({ onNewOrder, onNavigate }) {
           <div className="panel-header">
             <div>
               <h2>Recent Orders</h2>
-
-              <p>
-                Latest customer orders.
-              </p>
+              <p>Latest customer orders.</p>
             </div>
 
             <button
               className="text-button"
               type="button"
-              onClick={() => onNavigate("Orders / Jobs")}
+              onClick={() =>
+                onNavigate("Orders / Jobs")
+              }
             >
               View All
               <ArrowUpRight size={16} />
@@ -431,32 +589,33 @@ function Dashboard({ onNewOrder, onNavigate }) {
               <span>Status</span>
             </div>
 
-            {recentOrders.map((order) => (
-              <div
-                className="table-row"
-                key={order.id}
-              >
-                <strong>
-                  {order.id}
-                </strong>
-
-                <span>
-                  {order.customer}
-                </span>
-
-                <span>
-                  {order.item}
-                </span>
-
-                <strong>
-                  {order.amount}
-                </strong>
-
-                <StatusBadge
-                  status={order.status}
-                />
+            {data.recentOrders.length === 0 ? (
+              <div className="empty-state">
+                <h2>No orders yet</h2>
+                <p>
+                  Create your first order to see it here.
+                </p>
               </div>
-            ))}
+            ) : (
+              data.recentOrders.map((order) => (
+                <div
+                  className="table-row"
+                  key={order.id}
+                >
+                  <strong>{order.id}</strong>
+                  <span>{order.customer}</span>
+                  <span>{order.item}</span>
+                  <strong>
+                    {typeof order.amount === "number"
+                      ? data.money(order.amount)
+                      : order.amount}
+                  </strong>
+                  <StatusBadge
+                    status={order.status}
+                  />
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -464,47 +623,74 @@ function Dashboard({ onNewOrder, onNavigate }) {
           <div className="panel-header">
             <div>
               <h2>Production Queue</h2>
-
-              <p>
-                Current jobs in production.
-              </p>
+              <p>Current jobs in production.</p>
             </div>
 
             <Printer size={20} />
           </div>
 
           <div className="production-list">
-            {productionQueue.map((job) => (
-              <div
-                className="production-item"
-                key={job.id}
-              >
-                <div className="production-top">
-                  <div>
-                    <strong>
-                      {job.id}
-                    </strong>
-
-                    <span>
-                      {job.item}
-                    </span>
-                  </div>
-
-                  <strong>
-                    {job.progress}%
-                  </strong>
-                </div>
-
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{
-                      width: `${job.progress}%`,
-                    }}
-                  />
-                </div>
+            {data.production.length === 0 ? (
+              <div className="empty-state">
+                <h2>No production jobs</h2>
+                <p>
+                  New orders will appear here automatically.
+                </p>
               </div>
-            ))}
+            ) : (
+              data.production
+                .filter(
+                  (job) =>
+                    job.status !== "Completed"
+                )
+                .slice(0, 6)
+                .map((job) => (
+                  <div
+                    className="production-item"
+                    key={job.id}
+                  >
+                    <div className="production-top">
+                      <div>
+                        <strong>
+                          {job.orderNumber ||
+                            job.orderId ||
+                            "JOB"}
+                        </strong>
+
+                        <span>
+                          {job.job ||
+                            job.item ||
+                            "Printing Job"}
+                        </span>
+                      </div>
+
+                      <strong>
+                        {Number(
+                          job.progress || 0
+                        )}
+                        %
+                      </strong>
+                    </div>
+
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={{
+                          width: `${Math.min(
+                            Math.max(
+                              Number(
+                                job.progress || 0
+                              ),
+                              0
+                            ),
+                            100
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
+            )}
           </div>
         </div>
       </div>
@@ -513,27 +699,24 @@ function Dashboard({ onNewOrder, onNavigate }) {
         <div className="section-heading">
           <div>
             <h2>System Status</h2>
-
-            <p>
-              STYLZ IMS services.
-            </p>
+            <p>STYLZ IMS services.</p>
           </div>
         </div>
 
         <div className="status-grid">
           <SystemStatus
-            title="Database"
-            status="Ready"
+            title="Orders & Jobs"
+            status={`${data.orders.length} records`}
           />
 
           <SystemStatus
             title="Production System"
-            status="Ready"
+            status={`${data.production.length} jobs`}
           />
 
           <SystemStatus
-            title="Notifications"
-            status="Ready"
+            title="Payments"
+            status={`${data.payments.length} records`}
           />
         </div>
       </div>
