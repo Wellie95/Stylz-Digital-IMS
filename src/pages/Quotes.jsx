@@ -9,10 +9,10 @@ const company = {
   name: "STYLZ DIGITAL SOLUTIONS",
   tagline: "Creative Printing, Branding & Digital Solutions",
   registration: "Reg No. 2023/916461/07 · Zimbabwe & South Africa",
-  phone: "084 379 3246 / 062 617 3145 / 061 398 2106",
-  email: "info@stylzdigitalsolutions.co.za",
+  phone: "084 379 3246 / 062 617 3145",
+  email: "info@stylzdigital.co.za",
   website: "www.stylzdigital.co.za",
-  address: "118 Village Street, Randfontein, 1759, South Africa",
+  address: "Randfontein, Gauteng, South Africa",
 };
 
 const banking = {
@@ -1067,6 +1067,241 @@ function Quotes() {
   };
 
   // =====================================================
+  // DELETE QUOTE
+  // =====================================================
+
+  const deleteQuote = (quote) => {
+    const confirmed = window.confirm(
+      `Delete quote ${quote.id}? This action cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const updatedQuotes = quotes.filter(
+      (item) => item.id !== quote.id
+    );
+
+    saveQuotesToStorage(updatedQuotes);
+
+    if (selectedQuote?.id === quote.id) {
+      setShowPreview(false);
+      setSelectedQuote(null);
+    }
+
+    if (editingQuote?.id === quote.id) {
+      setShowForm(false);
+      setEditingQuote(null);
+    }
+
+    window.dispatchEvent(
+      new Event("stylz-data-updated")
+    );
+  };
+
+  // =====================================================
+  // CONVERT QUOTE TO ORDER
+  // =====================================================
+
+  const convertQuoteToOrder = (quote) => {
+    if (quote.convertedOrderId) {
+      alert(
+        `This quote has already been converted to order ${quote.convertedOrderId}.`
+      );
+      return;
+    }
+
+    const existingOrders = (() => {
+      try {
+        const saved = localStorage.getItem(
+          "stylz_ims_orders"
+        );
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    })();
+
+    const orderNumbers = existingOrders
+      .map((order) => {
+        const match = String(
+          order.orderNumber || order.id || ""
+        ).match(/STZ-(\d+)/);
+
+        return match ? Number(match[1]) : 0;
+      })
+      .filter((number) => number > 0);
+
+    const highestOrderNumber =
+      orderNumbers.length > 0
+        ? Math.max(...orderNumbers)
+        : 0;
+
+    const orderNumber = `STZ-${String(
+      highestOrderNumber + 1
+    ).padStart(3, "0")}`;
+
+    const total = calculateTotal(quote);
+
+    const newOrder = {
+      id: orderNumber,
+      orderNumber,
+      quoteId: quote.id,
+
+      customerId:
+        quote.customerId || "",
+
+      customer:
+        quote.customer || "Walk-in Customer",
+
+      customerPhone:
+        quote.customerDetails?.phone || "",
+
+      customerWhatsapp:
+        quote.customerDetails?.whatsapp || "",
+
+      customerEmail:
+        quote.customerDetails?.email || "",
+
+      customerCompany:
+        quote.customerDetails?.companyName || "",
+
+      customerAddress:
+        quote.customerDetails?.address || "",
+
+      customerCity:
+        quote.customerDetails?.city || "",
+
+      description: quote.items
+        .map(
+          (item) =>
+            `${item.description} x ${item.quantity}`
+        )
+        .join(", "),
+
+      jobName:
+        quote.items.length === 1
+          ? quote.items[0].description
+          : `Quote ${quote.id} Production Job`,
+
+      items: quote.items.map((item) => ({
+        description: item.description,
+        quantity: Number(item.quantity) || 1,
+        price: Number(item.price) || 0,
+      })),
+
+      quantity: quote.items.reduce(
+        (sum, item) =>
+          sum + (Number(item.quantity) || 0),
+        0
+      ),
+
+      amount: total,
+      total,
+
+      priority: "Normal",
+      status: "Pending",
+
+      orderDate:
+        new Date().toISOString().split("T")[0],
+
+      dueDate:
+        quote.validUntil ||
+        new Date().toISOString().split("T")[0],
+
+      assignedTo: "",
+      notes:
+        `Created from quotation ${quote.id}. ${quote.notes || ""}`.trim(),
+
+      createdAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem(
+      "stylz_ims_orders",
+      JSON.stringify([
+        ...existingOrders,
+        newOrder,
+      ])
+    );
+
+    // Mark the quotation as accepted/converted.
+    const updatedQuotes = quotes.map(
+      (item) =>
+        item.id === quote.id
+          ? {
+              ...item,
+              status: "Accepted",
+              convertedOrderId: orderNumber,
+              convertedAt:
+                new Date().toISOString(),
+            }
+          : item
+    );
+
+    saveQuotesToStorage(updatedQuotes);
+
+    // Orders.jsx listens to this data store and creates
+    // the matching production job automatically when
+    // the order is created through the Orders module.
+    // Create the production record here as well so
+    // quote conversion is immediately visible.
+    try {
+      const production = JSON.parse(
+        localStorage.getItem(
+          "stylz_ims_production"
+        ) || "[]"
+      );
+
+      const productionExists = production.some(
+        (job) => job.orderId === orderNumber
+      );
+
+      if (!productionExists) {
+        production.push({
+          id: Date.now(),
+          orderId: orderNumber,
+          orderNumber,
+          job:
+            newOrder.jobName ||
+            newOrder.description,
+          customer: newOrder.customer,
+          status: "Queued",
+          progress: 0,
+          dueDate: newOrder.dueDate,
+          assignedTo: "",
+        });
+
+        localStorage.setItem(
+          "stylz_ims_production",
+          JSON.stringify(production)
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Could not create production job:",
+        error
+      );
+    }
+
+    window.dispatchEvent(
+      new Event("stylz-data-updated")
+    );
+
+    setSelectedQuote({
+      ...quote,
+      status: "Accepted",
+      convertedOrderId: orderNumber,
+      convertedAt:
+        new Date().toISOString(),
+    });
+
+    alert(
+      `Quote ${quote.id} converted successfully to order ${orderNumber}.`
+    );
+  };
+
+  // =====================================================
   // PREVIEW
   // =====================================================
 
@@ -1538,6 +1773,15 @@ ${company.website}`
                             }
                           >
                             Edit
+                          </button>
+
+                          <button
+                            className="cancel-btn"
+                            onClick={() =>
+                              deleteQuote(quote)
+                            }
+                          >
+                            Delete
                           </button>
 
                         </div>
@@ -2467,6 +2711,29 @@ ${company.website}`
                   }
                 >
                   ✏ Edit Quote
+                </button>
+
+                <button
+                  className="view-quote-btn"
+                  onClick={() =>
+                    convertQuoteToOrder(
+                      selectedQuote
+                    )
+                  }
+                  disabled={
+                    Boolean(
+                      selectedQuote.convertedOrderId
+                    )
+                  }
+                  title={
+                    selectedQuote.convertedOrderId
+                      ? `Already converted to ${selectedQuote.convertedOrderId}`
+                      : "Convert this quote into an order"
+                  }
+                >
+                  {selectedQuote.convertedOrderId
+                    ? `✓ Order ${selectedQuote.convertedOrderId}`
+                    : "Convert to Order"}
                 </button>
 
                 <button
