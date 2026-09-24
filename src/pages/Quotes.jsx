@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   defaultCustomers,
   CUSTOMER_STORAGE_KEY,
@@ -93,6 +93,20 @@ function Quotes() {
       return initialQuotes;
     }
   });
+
+  const [productCatalog, setProductCatalog] = useState(products);
+
+  useEffect(() => {
+    try {
+      const savedProducts = localStorage.getItem("stylz_ims_products");
+      if (savedProducts) {
+        const parsed = JSON.parse(savedProducts);
+        if (Array.isArray(parsed)) setProductCatalog(parsed);
+      }
+    } catch (error) {
+      console.error("Error loading product catalog:", error);
+    }
+  }, []);
 
   const [showForm, setShowForm] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -724,19 +738,29 @@ function Quotes() {
     field,
     value
   ) => {
-    const updatedItems = [
-      ...form.items,
-    ];
+    const updatedItems = [...form.items];
 
-    updatedItems[index] = {
+    const nextItem = {
       ...updatedItems[index],
-
       [field]:
-        field === "quantity" ||
-        field === "price"
+        field === "quantity" || field === "price"
           ? Number(value)
           : value,
     };
+
+    if (field === "description") {
+      const match = productCatalog.find(
+        (product) =>
+          product.name.trim().toLowerCase() ===
+          String(value).trim().toLowerCase()
+      );
+
+      if (match) {
+        nextItem.price = Number(match.price || 0);
+      }
+    }
+
+    updatedItems[index] = nextItem;
 
     setForm({
       ...form,
