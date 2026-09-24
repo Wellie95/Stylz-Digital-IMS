@@ -135,7 +135,7 @@ const getInitialInvoices = () => {
       ],
       discount: 0,
       amountPaid: 0,
-      notes: "",
+      notes: "50% deposit required before production.",
     },
   ];
 };
@@ -174,7 +174,7 @@ const getInitialCustomers = () => {
       companyName: "",
       address: "",
       city: "",
-      notes: "",
+      notes: "50% deposit required before production.",
       createdAt: today,
     },
   ];
@@ -372,137 +372,11 @@ function Invoices() {
     items: [createEmptyItem()],
     discount: 0,
     amountPaid: 0,
-    notes: "",
+    notes: "50% deposit required before production.",
   });
 
   const [activeProductItemId, setActiveProductItemId] =
   useState(null);
-
-  useEffect(() => {
-  try {
-    const savedOrder = localStorage.getItem(
-      INVOICE_FROM_ORDER_KEY
-    );
-
-    if (!savedOrder) return;
-
-    const order = JSON.parse(savedOrder);
-
-    localStorage.removeItem(
-      INVOICE_FROM_ORDER_KEY
-    );
-
-    if (!order) return;
-
-    const matchingCustomer =
-      customers.find(
-        (customer) =>
-          customer.id === order.customerId
-      ) ||
-      findMatchingCustomer(customers, {
-        name: order.customer || "",
-        phone: order.customerPhone || "",
-        whatsapp:
-          order.customerWhatsapp || "",
-        email: order.customerEmail || "",
-        companyName:
-          order.customerCompany || "",
-      });
-
-    const customerData =
-      matchingCustomer || {
-        ...emptyCustomer,
-        name: order.customer || "",
-        phone: order.customerPhone || "",
-        whatsapp: order.customerWhatsapp || "",
-        email: order.customerEmail || "",
-        companyName:
-          order.customerCompany || "",
-        address:
-          order.customerAddress || "",
-        city:
-          order.customerCity || "",
-      };
-
-    setEditingInvoice(null);
-
-    setCustomerMode(
-      matchingCustomer ? "existing" : "manual"
-    );
-
-    setSelectedCustomerId(
-      matchingCustomer?.id || ""
-    );
-
-    setFormCustomer({
-      ...emptyCustomer,
-      ...customerData,
-      name:
-        customerData.name ||
-        order.customer ||
-        "",
-    });
-
-    setFormData({
-      invoiceNumber:
-        getNextInvoiceNumber(invoices),
-
-      date:
-        order.orderDate || today,
-
-      dueDate:
-        order.dueDate || today,
-
-      items: [
-        {
-          id: Date.now() + Math.random(),
-
-          description:
-            order.jobName ||
-            order.description ||
-            "Printing Services",
-
-          quantity: Number(
-            order.quantity || 1
-          ),
-
-          price: 0,
-        },
-      ],
-
-      discount: 0,
-
-      amountPaid: 0,
-
-      notes: [
-        order.orderNumber
-          ? `Order: ${order.orderNumber}`
-          : "",
-
-        order.description
-          ? `Job: ${order.description}`
-          : "",
-
-        order.notes
-          ? `Notes: ${order.notes}`
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    });
-
-    setShowForm(true);
-  } catch (error) {
-    console.error(
-      "Could not load order for invoice:",
-      error
-    );
-
-    localStorage.removeItem(
-      INVOICE_FROM_ORDER_KEY
-    );
-  }
-}, []);
 
   useEffect(() => {
     localStorage.setItem(
@@ -746,7 +620,7 @@ function Invoices() {
       items: [createEmptyItem()],
       discount: 0,
       amountPaid: 0,
-      notes: "",
+      notes: "50% deposit required before production.",
     });
   };
 
@@ -1065,7 +939,7 @@ const handleProductDescriptionChange = (
         city:
           incoming.city || "",
 
-        notes: "",
+        notes: "50% deposit required before production.",
 
         createdAt: today,
       };
