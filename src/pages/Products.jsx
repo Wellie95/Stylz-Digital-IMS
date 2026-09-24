@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Plus,
@@ -17,7 +17,20 @@ function Products() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const [productList, setProductList] = useState(products);
+  const [productList, setProductList] = useState(() => {
+    try {
+      const saved = localStorage.getItem("stylz_ims_products");
+      return saved ? JSON.parse(saved) : products;
+    } catch {
+      return products;
+    }
+  });
+
+  const [editingProduct, setEditingProduct] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem("stylz_ims_products", JSON.stringify(productList));
+  }, [productList]);
 
   const [form, setForm] = useState({
     name: "",
@@ -61,15 +74,15 @@ function Products() {
     }));
   };
 
-  const handleAddProduct = (event) => {
+  const handleSaveProduct = (event) => {
     event.preventDefault();
 
     if (!form.name.trim() || !form.price) {
       return;
     }
 
-    const newProduct = {
-      id: Date.now(),
+    const productData = {
+      id: editingProduct?.id || Date.now(),
       name: form.name.trim(),
       category: form.category,
       description: form.description.trim(),
@@ -77,10 +90,15 @@ function Products() {
       unit: form.unit,
     };
 
-    setProductList((current) => [
-      ...current,
-      newProduct,
-    ]);
+    setProductList((current) =>
+      editingProduct
+        ? current.map((product) =>
+            product.id === editingProduct.id
+              ? productData
+              : product
+          )
+        : [...current, productData]
+    );
 
     setForm({
       name: "",
@@ -89,8 +107,20 @@ function Products() {
       price: "",
       unit: "each",
     });
-
+    setEditingProduct(null);
     setShowAddForm(false);
+  };
+
+  const openEditProduct = (product) => {
+    setEditingProduct(product);
+    setForm({
+      name: product.name || "",
+      category: product.category || "Digital Printing",
+      description: product.description || "",
+      price: product.price ?? "",
+      unit: product.unit || "each",
+    });
+    setShowAddForm(true);
   };
 
   const formatPrice = (price) => {
@@ -822,7 +852,11 @@ const handlePrintPriceList = () => {
             <button
               className="primary-button"
               type="button"
-              onClick={() => setShowAddForm(true)}
+              onClick={() => {
+                setEditingProduct(null);
+                setForm({ name: "", category: "Digital Printing", description: "", price: "", unit: "each" });
+                setShowAddForm(true);
+              }}
             >
               <Plus size={18} />
               Add Product
@@ -1004,6 +1038,7 @@ const handlePrintPriceList = () => {
                         className="product-edit-button"
                         type="button"
                         title="Edit product"
+                        onClick={() => openEditProduct(product)}
                       >
                         <Edit3 size={16} />
                       </button>
