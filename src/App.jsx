@@ -655,9 +655,9 @@ function Reports() {
 }
 
 function SettingsPage() {
-  const [form,setForm]=useState(()=>{try{return JSON.parse(localStorage.getItem("stylz_ims_settings"))||{phone:"084 379 3246 / 062 617 3145",email:"info@stylzdigitalsolutions.co.za",website:"www.stylzdigital.co.za",address:"118 Village Street, Randfontein, 1759, South Africa"}}catch{return{}}});
+  const [form,setForm]=useState(()=>{try{return JSON.parse(localStorage.getItem("stylz_ims_settings"))||{phone:"084 379 3246 / 062 617 3145",email:"info@stylzdigital.co.za",website:"www.stylzdigital.co.za",address:"Randfontein, Gauteng, South Africa",registration:"2023/916461/07"}}catch{return{}}});
   const save=()=>{localStorage.setItem("stylz_ims_settings",JSON.stringify(form));alert("Settings saved.");};
-  return <div className="page"><div className="page-header"><div><h1>Settings</h1><p>Manage the business contact information used by STYLZ-IMS.</p></div></div><div className="data-panel"><div className="panel-header"><div><h2>Business Details</h2><p>These settings are stored locally for this browser.</p></div></div><div className="form-grid">{[["phone","Phone"],["email","Email"],["website","Website"],["address","Address"]].map(([k,l])=><div className="form-group" key={k}><label>{l}</label><input value={form[k]||""} onChange={e=>setForm({...form,[k]:e.target.value})}/></div>)}</div><div className="modal-actions"><button className="stylz-primary-btn" onClick={save}><CheckCircle2 size={17}/> Save Settings</button></div></div></div>;
+  return <div className="page"><div className="page-header"><div><h1>Settings</h1><p>Manage the business contact information used by STYLZ-IMS.</p></div></div><div className="data-panel"><div className="panel-header"><div><h2>Business Details</h2><p>These settings are stored locally for this browser.</p></div></div><div className="form-grid">{[["phone","Phone"],["email","Email"],["website","Website"],["address","Address"],["registration","Registration Number"]].map(([k,l])=><div className="form-group" key={k}><label>{l}</label><input value={form[k]||""} onChange={e=>setForm({...form,[k]:e.target.value})}/></div>)}</div><div className="modal-actions"><button className="stylz-primary-btn" onClick={save}><CheckCircle2 size={17}/> Save Settings</button></div></div></div>;
 }
 
 function PlaceholderPage({
