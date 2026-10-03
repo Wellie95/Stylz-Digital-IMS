@@ -22,7 +22,25 @@ export default function CompanyDocuments(){
  const duplicate=()=>active&&(()=>{const d={...active,id:uid(),name:`${active.name} Copy`,blocks:active.blocks.map(b=>({...b,id:uid()})),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};persist([...docs,d]);setActiveId(d.id)})();
  const remove=()=>{if(active&&window.confirm("Delete this saved document?")){const n=docs.filter(d=>d.id!==active.id);persist(n);setActiveId(n[0]?.id||null)}};
  const saveCompany=(c)=>{setCompany(c);localStorage.setItem(COMPANY_KEY,JSON.stringify(c))};
- const generate=()=>{if(!active)return;const p=prompt.trim();if(!p)return;const blocks=active.blocks.map((b,i)=>i===0?{...b,text:p}:b);updateDoc({name:p.slice(0,45),blocks})};
+ const generate=()=>{const p=prompt.trim();if(!p)return;const lower=p.toLowerCase();
+  if(lower.includes("solmari air tech")||lower.includes("solmari")){
+    const solmari={name:"SOLMARI AIR TECH AND SANITATION SOLUTIONS (PTY) LTD",tagline:"Cooling & Sanitation Solutions You Can Trust",registration:"Reg No. 2026/060291/07",address:"[Address to be added]",phone:"070 779 4667",email:"[Email to be added]",website:"",services:"HVAC, refrigeration, cooling, ventilation and portable sanitation solutions",primary:"#123B5D",secondary:"#18A7A1",font:"Arial"};
+    saveCompany(solmari);
+    const blocks=[
+      {id:uid(),type:"hero",title:"COMPANY PROFILE",text:"Cooling & Sanitation Solutions You Can Trust"},
+      {id:uid(),type:"text",title:"About Solmari",text:"SOLMARI AIR TECH AND SANITATION SOLUTIONS (PTY) LTD is a 100% Black-owned South African service provider delivering professional HVAC, refrigeration, cooling, ventilation and portable sanitation solutions. We serve residential, commercial, industrial, construction and event clients with a focus on affordability, energy efficiency, hygiene and dependable service."},
+      {id:uid(),type:"columns",title:"Mission & Vision",text:"To provide affordable, energy-efficient cooling and hygienic sanitation solutions while delivering reliable workmanship and responsive customer service.|To become a leading one-stop provider of air-conditioning, refrigeration and sanitation solutions in South Africa."},
+      {id:uid(),type:"services",title:"Air Conditioning & Refrigeration",text:"Supply & installation|Repairs & maintenance|Split & multi-split systems|Cassette & ducted systems|Under-ceiling & VRV/VRF systems|Window air conditioners|Cold & freezer rooms|Display fridges|Ventilation, extraction & ducting|Re-gassing, cleaning & servicing"},
+      {id:uid(),type:"services",title:"Portable Sanitation Solutions",text:"Standard & flush portable toilets|VIP luxury toilet trailers|2-in-1 & 4-in-1 units with basins|Wheelchair-friendly facilities|Handwash basins|Portable showers|Urinal stands|Weekly cleaning & sanitising|Waste removal|Construction, events, weddings & funerals"},
+      {id:uid(),type:"values",title:"Our Values",text:"Integrity|Professionalism|Reliability|Customer Satisfaction"},
+      {id:uid(),type:"text",title:"Service Areas & Clients",text:"We provide services across Gauteng, North West and Limpopo, including Soshanguve, Tembisa, Newclare, Rustenburg, Pretoria and surrounding areas. Our target clients include homes, offices, schools, clinics, retail shops, construction sites, mines, events companies and municipalities."},
+      {id:uid(),type:"text",title:"Why Choose Solmari",text:"Same-day service in selected service areas|Certified technicians and trade-tested personnel|24/7 emergency assistance|Affordable rates and free quotations|Warranty on workmanship|Compliance information can be provided where applicable"},
+      {id:uid(),type:"text",title:"Contact Us",text:"Phone / WhatsApp: 070 779 4667\nEmail: [Email to be added]\nAddress: [Address to be added]\nOperating Hours: Monday–Saturday 07:00–19:00 | Sunday: Emergency Service"},
+    ];
+    const d={id:uid(),name:"SOLMARI Air Tech & Sanitation — Company Profile",type:"profile",template:"modern",blocks,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    persist([...docs,d]);setActiveId(d.id);setType("profile");setSelected(blocks[0].id);return;
+  }
+  if(!active){create("profile");return;} const blocks=active.blocks.map((b,i)=>i===0?{...b,text:p}:b);updateDoc({name:p.slice(0,45),blocks})};
  const addBlock=()=>{const b={id:uid(),type:"text",title:"New Section",text:"Click this section to edit it."};updateBlocks([...(active?.blocks||[]),b]);setSelected(b.id)};
  const move=(id,dir)=>{const a=[...(active?.blocks||[])],i=a.findIndex(x=>x.id===id),j=i+dir;if(i<0||j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];updateBlocks(a)};
  const updateBlock=(id,patch)=>updateBlocks(active.blocks.map(b=>b.id===id?{...b,...patch}:b));
