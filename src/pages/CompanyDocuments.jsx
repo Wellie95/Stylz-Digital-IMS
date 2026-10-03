@@ -1,189 +1,55 @@
-import React, { useMemo, useState } from "react";
-import { FileText, Wand2, Printer, Download, RefreshCw, Building2, Mail, Phone, Globe2 } from "lucide-react";
+import React, { useMemo, useRef, useState } from "react";
+import { Download, Copy, FileText, ImagePlus, Palette, Plus, Save, Trash2, Type, Upload, Wand2, GripVertical } from "lucide-react";
 import "./CompanyDocuments.css";
 
-const DEFAULT_COMPANY = {
-  name: "STYLZ DIGITAL SOLUTIONS",
-  tagline: "Creative Printing, Branding & Digital Solutions",
-  registration: "Reg No. 2023/916461/07 · Zimbabwe & South Africa",
-  address: "Randfontein, Gauteng, South Africa",
-  phone: "",
-  email: "info@stylzdigital.co.za",
-  website: "stylzdigital.co.za",
-  colors: "#e31b23, #174ea6",
-  services: "Large-format printing, digital printing, graphic design, websites, online applications and branding.",
-};
+const KEY="stylz_ims_company_documents";
+const COMPANY_KEY="stylz_ims_company_profile";
+const defaults={name:"STYLZ DIGITAL SOLUTIONS",tagline:"Creative Printing, Branding & Digital Solutions",registration:"Reg No. 2023/916461/07 · Zimbabwe & South Africa",address:"Randfontein, Gauteng, South Africa",phone:"",email:"info@stylzdigital.co.za",website:"stylzdigital.co.za",services:"Large-format printing, digital printing, graphic design, websites, online applications and branding.",primary:"#174ea6",secondary:"#e31b23",font:"Arial"};
+const read=(k,f)=>{try{return JSON.parse(localStorage.getItem(k)||"null")||f}catch{return f}};
+const uid=()=>Date.now()+Math.random();
+const blocksFor=(type)=>type==="profile"?[{id:uid(),type:"hero",title:"COMPANY PROFILE",text:"Professional solutions for modern businesses."},{id:uid(),type:"text",title:"About Us",text:"Tell customers who you are, what you do and why they should work with you."},{id:uid(),type:"columns",title:"Mission & Vision",text:"Our mission|Our vision"},{id:uid(),type:"services",title:"Our Services",text:"Printing and branding|Graphic design|Websites|Business solutions"},{id:uid(),type:"values",title:"Our Values",text:"Quality|Reliability|Creativity|Professionalism"}]:[{id:uid(),type:"letterHeader",title:"Business Letterhead",text:""},{id:uid(),type:"text",title:"Recipient",text:"Recipient Name\nCompany / Address"},{id:uid(),type:"text",title:"Subject",text:"RE: Business Communication"},{id:uid(),type:"text",title:"Letter",text:"Dear Sir/Madam,\n\nWrite your professional letter here.\n\nYours faithfully,"},{id:uid(),type:"signature",title:"Signature",text:"Welly|Administrator"}];
 
-const emptyDraft = {
-  recipient: "",
-  subject: "",
-  body: "",
-  signatory: "Welly",
-  position: "Administrator",
-};
+function loadCompany(){return {...defaults,...read(COMPANY_KEY,{})}}
+function newDoc(type="profile"){return {id:uid(),name:type==="profile"?"Untitled Company Profile":"Untitled Letterhead",type,template:"modern",blocks:blocksFor(type),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}}
 
-function readCompany() {
-  try {
-    return { ...DEFAULT_COMPANY, ...(JSON.parse(localStorage.getItem("stylz_ims_company_profile") || "{}")) };
-  } catch {
-    return DEFAULT_COMPANY;
-  }
+export default function CompanyDocuments(){
+ const [company,setCompany]=useState(loadCompany); const [docs,setDocs]=useState(()=>read(KEY,[])); const [activeId,setActiveId]=useState(()=>docs[0]?.id||null); const [type,setType]=useState("profile"); const [template,setTemplate]=useState("modern"); const [selected,setSelected]=useState(null); const [prompt,setPrompt]=useState(""); const [zoom,setZoom]=useState(70); const fileRef=useRef(null);
+ const active=docs.find(d=>d.id===activeId)||null;
+ const persist=(next)=>{setDocs(next);localStorage.setItem(KEY,JSON.stringify(next))};
+ const updateDoc=(patch)=>{if(!active)return;persist(docs.map(d=>d.id===active.id?{...d,...patch,updatedAt:new Date().toISOString()}:d))};
+ const updateBlocks=(blocks)=>updateDoc({blocks});
+ const create=(t=type)=>{const d=newDoc(t);d.template=template;persist([...docs,d]);setActiveId(d.id);setType(t);setSelected(d.blocks[0].id)};
+ const duplicate=()=>active&&(()=>{const d={...active,id:uid(),name:`${active.name} Copy`,blocks:active.blocks.map(b=>({...b,id:uid()})),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};persist([...docs,d]);setActiveId(d.id)})();
+ const remove=()=>{if(active&&window.confirm("Delete this saved document?")){const n=docs.filter(d=>d.id!==active.id);persist(n);setActiveId(n[0]?.id||null)}};
+ const saveCompany=(c)=>{setCompany(c);localStorage.setItem(COMPANY_KEY,JSON.stringify(c))};
+ const generate=()=>{if(!active)return;const p=prompt.trim();if(!p)return;const blocks=active.blocks.map((b,i)=>i===0?{...b,text:p}:b);updateDoc({name:p.slice(0,45),blocks})};
+ const addBlock=()=>{const b={id:uid(),type:"text",title:"New Section",text:"Click this section to edit it."};updateBlocks([...(active?.blocks||[]),b]);setSelected(b.id)};
+ const move=(id,dir)=>{const a=[...(active?.blocks||[])],i=a.findIndex(x=>x.id===id),j=i+dir;if(i<0||j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];updateBlocks(a)};
+ const updateBlock=(id,patch)=>updateBlocks(active.blocks.map(b=>b.id===id?{...b,...patch}:b));
+ const removeBlock=id=>updateBlocks(active.blocks.filter(b=>b.id!==id));
+ const selectedBlock=active?.blocks.find(b=>b.id===selected);
+ const exportPDF=()=>window.print();
+ const logoUpload=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>saveCompany({...company,logo:r.result});r.readAsDataURL(f)};
+ const colors={primary:company.primary,secondary:company.secondary};
+ return <div className="studio">
+  <header className="studio-top no-print"><div><span className="studio-kicker">STYLZ IMS · DOCUMENT STUDIO</span><h1>Canva-style Business Designer</h1></div><div className="studio-actions"><button onClick={()=>create("profile")}><Plus size={16}/> New Profile</button><button onClick={()=>create("letter")}><Plus size={16}/> New Letterhead</button><button onClick={duplicate}><Copy size={16}/> Duplicate</button><button className="primary" onClick={exportPDF}><Download size={16}/> Download PDF</button></div></header>
+  <div className="studio-layout no-print">
+   <aside className="studio-sidebar">
+    <div className="side-section"><strong>Saved Documents</strong>{docs.length===0&&<small>No saved documents yet.</small>}{docs.map(d=><button className={d.id===activeId?"doc-list active":"doc-list"} key={d.id} onClick={()=>{setActiveId(d.id);setType(d.type)}}><FileText size={15}/><span>{d.name}</span></button>)}</div>
+    <div className="side-section"><strong>Templates</strong><button onClick={()=>{setType("profile");setTemplate("modern");create("profile")}}>Modern Profile</button><button onClick={()=>{setType("profile");setTemplate("corporate");create("profile")}}>Corporate Profile</button><button onClick={()=>{setType("profile");setTemplate("creative");create("profile")}}>Creative Profile</button><button onClick={()=>{setType("letter");setTemplate("classic");create("letter")}}>Classic Letterhead</button><button onClick={()=>{setType("letter");setTemplate("modern");create("letter")}}>Modern Letterhead</button><button onClick={()=>{setType("letter");setTemplate("bold");create("letter")}}>Bold Letterhead</button></div>
+    {active&&<div className="side-section"><strong>Document</strong><input value={active.name} onChange={e=>updateDoc({name:e.target.value})}/><button onClick={addBlock}><Plus size={15}/> Add section</button><button onClick={remove} className="danger"><Trash2 size={15}/> Delete</button></div>}
+   </aside>
+   <main className="editor-area">
+    <div className="editor-toolbar"><div className="tool-group"><button onClick={()=>setZoom(Math.max(40,zoom-10))}>−</button><span>{zoom}%</span><button onClick={()=>setZoom(Math.min(110,zoom+10))}>+</button></div><div className="tool-group"><button onClick={()=>fileRef.current?.click()}><Upload size={15}/> Logo</button><input ref={fileRef} type="file" accept="image/*" hidden onChange={logoUpload}/><label><Palette size={15}/> Primary <input type="color" value={company.primary} onChange={e=>saveCompany({...company,primary:e.target.value})}/></label><label>Secondary <input type="color" value={company.secondary} onChange={e=>saveCompany({...company,secondary:e.target.value})}/></label><label><Type size={15}/> Font <select value={company.font} onChange={e=>saveCompany({...company,font:e.target.value})}><option>Arial</option><option>Georgia</option><option>Verdana</option><option>Trebuchet MS</option><option>Times New Roman</option></select></label></div></div>
+    <div className="canvas-scroll"><div className="canvas" style={{transform:`scale(${zoom/100})`}}>{active?<DocumentCanvas doc={active} company={company} colors={colors} selected={selected} setSelected={setSelected} updateBlock={updateBlock} move={move} removeBlock={removeBlock}/>:<div className="empty-canvas"><Wand2 size={38}/><h2>Create a document</h2><p>Choose a template or create a new company profile or letterhead.</p></div>}</div></div>
+   </main>
+   <aside className="properties no-print"><div className="property-title"><strong>Design & Content</strong><small>Selected element</small></div>{!active&&<p>Create a document to begin.</p>}{active&&<><div className="prompt-box"><Wand2 size={16}/><textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="Prompt this document..."/><button onClick={generate}>Generate</button></div><div className="prop-section"><strong>Company</strong>{["name","tagline","registration","address","phone","email","website","services"].map(k=><label key={k}>{k}<input value={company[k]||""} onChange={e=>saveCompany({...company,[k]:e.target.value})}/></label>)}</div>{selectedBlock&&<BlockEditor block={selectedBlock} update={p=>updateBlock(selectedBlock.id,p)}/>}</>}</aside>
+  </div>
+  {active&&<div className="mobile-save no-print"><button onClick={exportPDF}><Download size={16}/> Download PDF</button></div>}
+ </div>
 }
 
-function parsePrompt(prompt, company) {
-  const text = prompt.trim();
-  if (!text) return {};
-  const lower = text.toLowerCase();
-  const changes = {};
-  if (lower.includes("printing")) changes.services = "Professional digital and large-format printing, signage, branding and promotional print solutions.";
-  if (lower.includes("construction")) changes.services = "Professional construction and building services with a focus on quality, reliability and customer satisfaction.";
-  if (lower.includes("security")) changes.services = "Professional security, guarding and protection services for businesses, properties and events.";
-  const nameMatch = text.match(/(?:company|business)\s*(?:name)?\s*[:=-]\s*([^,\n]+)/i);
-  if (nameMatch) changes.name = nameMatch[1].trim();
-  const taglineMatch = text.match(/(?:tagline|slogan)\s*[:=-]\s*([^,\n]+)/i);
-  if (taglineMatch) changes.tagline = taglineMatch[1].trim();
-  return changes;
-}
+function BlockEditor({block,update}){return <div className="prop-section"><strong>Edit selected section</strong><label>Heading<input value={block.title||""} onChange={e=>update({title:e.target.value})}/></label><label>Content<textarea value={block.text||""} onChange={e=>update({text:e.target.value})}/></label><small>Use each line as a separate item in service/value sections.</small></div>}
 
-function makeProfile(company, prompt) {
-  const context = prompt ? ` Based on the brief provided, ${prompt.trim().replace(/\.$/, "")}.` : "";
-  return {
-    overview: `${company.name} is a customer-focused business committed to delivering dependable, professional solutions with attention to quality, presentation and service.${context}`,
-    mission: `To provide practical, high-quality solutions that help customers present, operate and grow their businesses professionally.`,
-    vision: `To build a trusted and recognisable brand known for quality workmanship, responsive service and modern solutions.`,
-    values: ["Quality", "Reliability", "Creativity", "Professionalism", "Customer service"],
-  };
-}
-
-export default function CompanyDocuments() {
-  const [company, setCompany] = useState(readCompany);
-  const [prompt, setPrompt] = useState("");
-  const [documentType, setDocumentType] = useState("profile");
-  const [draft, setDraft] = useState(emptyDraft);
-  const [profile, setProfile] = useState(() => makeProfile(readCompany(), ""));
-
-  const saveCompany = (next) => {
-    setCompany(next);
-    localStorage.setItem("stylz_ims_company_profile", JSON.stringify(next));
-  };
-
-  const generateProfile = () => {
-    const changes = parsePrompt(prompt, company);
-    const next = { ...company, ...changes };
-    saveCompany(next);
-    setProfile(makeProfile(next, prompt));
-    setDocumentType("profile");
-  };
-
-  const generateLetter = () => {
-    const changes = parsePrompt(prompt, company);
-    const next = { ...company, ...changes };
-    saveCompany(next);
-    const purpose = prompt.trim() || "a professional business communication";
-    setDraft({
-      recipient: draft.recipient,
-      subject: draft.subject || "Business Communication",
-      body: `Dear Sir/Madam,\n\nWe are pleased to introduce ${next.name}. ${purpose.charAt(0).toUpperCase() + purpose.slice(1)}. We would be delighted to discuss how our services can assist you and provide a professional solution tailored to your requirements.\n\nPlease feel free to contact us should you require any further information.\n\nYours faithfully,`,
-      signatory: draft.signatory || "Welly",
-      position: draft.position || "Administrator",
-    });
-    setDocumentType("letter");
-  };
-
-  const print = () => window.print();
-  const profileText = useMemo(() => `${company.name}\n${company.tagline}\n\nABOUT US\n${profile.overview}\n\nMISSION\n${profile.mission}\n\nVISION\n${profile.vision}\n\nOUR VALUES\n${profile.values.join(" • ")}`, [company, profile]);
-
-  const copyText = async () => {
-    await navigator.clipboard?.writeText(profileText);
-  };
-
-  return (
-    <div className="company-documents-page">
-      <div className="documents-toolbar no-print">
-        <div>
-          <div className="eyebrow">DOCUMENT STUDIO</div>
-          <h1>Company Profile & Letterhead</h1>
-          <p>Generate polished business documents from structured entries or a natural-language prompt.</p>
-        </div>
-        <div className="toolbar-actions">
-          <button className="doc-button secondary" onClick={() => { setPrompt(""); setProfile(makeProfile(company, "")); setDraft(emptyDraft); }}><RefreshCw size={16}/> Reset</button>
-          <button className="doc-button primary" onClick={print}><Printer size={16}/> Print / PDF</button>
-        </div>
-      </div>
-
-      <div className="document-workspace no-print">
-        <section className="document-panel">
-          <div className="panel-title"><Wand2 size={18}/><div><strong>AI-style prompt builder</strong><span>Describe what you need in plain language.</span></div></div>
-          <textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Example: Create a modern company profile for a printing and branding company focused on businesses in Randfontein. Make it professional and customer-focused." />
-          <div className="generation-actions">
-            <button className="doc-button primary" onClick={generateProfile}><Wand2 size={16}/> Generate Profile</button>
-            <button className="doc-button outline" onClick={generateLetter}><FileText size={16}/> Generate Letter</button>
-          </div>
-          <div className="tip">The generator works locally and keeps company information in this browser. It does not require an API key.</div>
-
-          <div className="panel-title entries-title"><Building2 size={18}/><div><strong>Company details</strong><span>These details are reused in every document.</span></div></div>
-          <div className="entry-grid">
-            {[["name","Company name"],["tagline","Tagline / slogan"],["registration","Registration"],["address","Address"],["phone","Phone"],["email","Email"],["website","Website"],["colors","Brand colours"]].map(([key,label]) => (
-              <label key={key}>{label}<input value={company[key] || ""} onChange={e => saveCompany({ ...company, [key]: e.target.value })}/></label>
-            ))}
-            <label className="wide">Services / description<textarea value={company.services} onChange={e => saveCompany({ ...company, services: e.target.value })}/></label>
-          </div>
-        </section>
-
-        <section className="document-panel document-options">
-          <div className="panel-title"><FileText size={18}/><div><strong>Document type</strong><span>Choose the document to preview.</span></div></div>
-          <div className="type-switcher">
-            <button className={documentType === "profile" ? "selected" : ""} onClick={() => setDocumentType("profile")}>Company Profile</button>
-            <button className={documentType === "letter" ? "selected" : ""} onClick={() => setDocumentType("letter")}>Letterhead</button>
-          </div>
-          {documentType === "letter" && <div className="entry-grid letter-fields">
-            <label>Recipient<input value={draft.recipient} onChange={e => setDraft({...draft, recipient:e.target.value})}/></label>
-            <label>Subject<input value={draft.subject} onChange={e => setDraft({...draft, subject:e.target.value})}/></label>
-            <label className="wide">Letter body<textarea rows="9" value={draft.body} onChange={e => setDraft({...draft, body:e.target.value})}/></label>
-            <label>Signatory<input value={draft.signatory} onChange={e => setDraft({...draft, signatory:e.target.value})}/></label>
-            <label>Position<input value={draft.position} onChange={e => setDraft({...draft, position:e.target.value})}/></label>
-          </div>}
-          {documentType === "profile" && <div className="profile-controls"><button className="doc-button outline" onClick={copyText}>Copy profile text</button><p>Use the prompt repeatedly to create different versions, then edit the company details before printing.</p></div>}
-        </section>
-      </div>
-
-      <div className="paper-wrap">
-        {documentType === "profile" ? <ProfilePreview company={company} profile={profile} /> : <LetterPreview company={company} draft={draft} />}
-      </div>
-    </div>
-  );
-}
-
-function Header({ company }) {
-  return <div className="doc-header">
-    <img src="/stylz_digital_logo.png" alt="Company logo" onError={e => e.currentTarget.style.display = "none"}/>
-    <div className="header-brand"><strong>{company.name}</strong><span>{company.tagline}</span></div>
-    <div className="header-contact"><span><Phone size={11}/> {company.phone || ""}</span><span><Mail size={11}/> {company.email}</span><span><Globe2 size={11}/> {company.website}</span></div>
-  </div>;
-}
-
-function ProfilePreview({ company, profile }) {
-  return <article className="paper profile-paper">
-    <Header company={company}/>
-    <div className="profile-hero"><span>COMPANY PROFILE</span><h2>{company.name}</h2><p>{company.tagline}</p></div>
-    <div className="profile-body">
-      <section><h3>About Us</h3><p>{profile.overview}</p></section>
-      <div className="two-col"><section><h3>Our Mission</h3><p>{profile.mission}</p></section><section><h3>Our Vision</h3><p>{profile.vision}</p></section></div>
-      <section><h3>What We Do</h3><p>{company.services}</p></section>
-      <section><h3>Our Values</h3><div className="value-grid">{profile.values.map(v => <div key={v}>{v}</div>)}</div></section>
-    </div>
-    <footer className="doc-footer"><span>{company.registration}</span><span>{company.address}</span></footer>
-  </article>;
-}
-
-function LetterPreview({ company, draft }) {
-  return <article className="paper letter-paper">
-    <Header company={company}/>
-    <div className="letter-meta"><span>{new Date().toLocaleDateString("en-ZA")}</span><span>Ref: STZ-DOC-{new Date().getFullYear()}</span></div>
-    <div className="letter-recipient">{draft.recipient || "Recipient Name"}<br/><span>{company.address}</span></div>
-    <h2 className="letter-subject">{draft.subject || "Business Communication"}</h2>
-    <div className="letter-body">{(draft.body || "Dear Sir/Madam,\n\nYour letter content will appear here.").split("\n").map((line, i) => <p key={i}>{line || "\u00a0"}</p>)}</div>
-    <div className="signature"><strong>{draft.signatory || "Welly"}</strong><span>{draft.position || "Administrator"}</span><span>{company.name}</span></div>
-    <footer className="doc-footer"><span>{company.registration}</span><span>{company.email} · {company.website}</span></footer>
-  </article>;
-}
+function DocumentCanvas({doc,company,colors,selected,setSelected,updateBlock,move,removeBlock}){return <article className={`design-paper template-${doc.template} type-${doc.type}`} style={{fontFamily:company.font,"--primary":colors.primary,"--secondary":colors.secondary}}>{doc.blocks.map((b,i)=><section key={b.id} className={`design-block block-${b.type} ${selected===b.id?"selected":""}`} onClick={()=>setSelected(b.id)}><div className="block-handle no-print"><GripVertical size={14}/><button onClick={e=>{e.stopPropagation();move(b.id,-1)}}>↑</button><button onClick={e=>{e.stopPropagation();move(b.id,1)}}>↓</button><button onClick={e=>{e.stopPropagation();removeBlock(b.id)}}>×</button></div><BlockView block={b} company={company}/></section>)}</article>}
+function BlockView({block,company}){if(block.type==="hero")return <><div className="hero-logo">{company.logo?<img src={company.logo}/>:<img src="/stylz_digital_logo.png"/>}</div><span>{block.title}</span><h2>{company.name}</h2><p>{company.tagline}</p></>;if(block.type==="letterHeader")return <><div className="letter-brand"><div className="hero-logo">{company.logo?<img src={company.logo}/>:<img src="/stylz_digital_logo.png"/>}</div><div><h2>{company.name}</h2><p>{company.tagline}</p></div><div className="contact">{company.phone}<br/>{company.email}<br/>{company.website}</div></div><div className="rule"/></>;if(block.type==="columns")return <><h3>{block.title}</h3><div className="columns">{block.text.split("|").map((x,i)=><div key={i}><h4>{i%2===0?"MISSION":"VISION"}</h4><p>{x}</p></div>)}</div></>;if(["services","values"].includes(block.type))return <><h3>{block.title}</h3><div className="chips">{block.text.split("|").map(x=><span key={x}>{x}</span>)}</div></>;if(block.type==="signature")return <div className="signature"><strong>{block.text.split("|")[0]}</strong><span>{block.text.split("|")[1]}</span></div>;return <><h3>{block.title}</h3>{block.text.split("\n").map((x,i)=><p key={i}>{x||"\u00a0"}</p>)}</>}
