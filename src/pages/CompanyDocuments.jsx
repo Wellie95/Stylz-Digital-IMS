@@ -22,26 +22,14 @@ export default function CompanyDocuments(){
  const duplicate=()=>active&&(()=>{const d={...active,id:uid(),name:`${active.name} Copy`,blocks:active.blocks.map(b=>({...b,id:uid()})),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};persist([...docs,d]);setActiveId(d.id)})();
  const remove=()=>{if(active&&window.confirm("Delete this saved document?")){const n=docs.filter(d=>d.id!==active.id);persist(n);setActiveId(n[0]?.id||null)}};
  const saveCompany=(c)=>{setCompany(c);localStorage.setItem(COMPANY_KEY,JSON.stringify(c))};
- const generate=()=>{const p=prompt.trim();if(!p)return;const lower=p.toLowerCase();
-  if(lower.includes("solmari air tech")||lower.includes("solmari")){
-    const solmari={name:"SOLMARI AIR TECH AND SANITATION SOLUTIONS (PTY) LTD",tagline:"Cooling & Sanitation Solutions You Can Trust",registration:"Reg No. 2026/060291/07",address:"[Address to be added]",phone:"070 779 4667",email:"[Email to be added]",website:"",services:"HVAC, refrigeration, cooling, ventilation and portable sanitation solutions",primary:"#123B5D",secondary:"#18A7A1",font:"Arial"};
-    saveCompany(solmari);
-    const blocks=[
-      {id:uid(),type:"hero",title:"COMPANY PROFILE",text:"Cooling & Sanitation Solutions You Can Trust"},
-      {id:uid(),type:"text",title:"About Solmari",text:"SOLMARI AIR TECH AND SANITATION SOLUTIONS (PTY) LTD is a 100% Black-owned South African service provider delivering professional HVAC, refrigeration, cooling, ventilation and portable sanitation solutions. We serve residential, commercial, industrial, construction and event clients with a focus on affordability, energy efficiency, hygiene and dependable service."},
-      {id:uid(),type:"columns",title:"Mission & Vision",text:"To provide affordable, energy-efficient cooling and hygienic sanitation solutions while delivering reliable workmanship and responsive customer service.|To become a leading one-stop provider of air-conditioning, refrigeration and sanitation solutions in South Africa."},
-      {id:uid(),type:"services",title:"Air Conditioning & Refrigeration",text:"Supply & installation|Repairs & maintenance|Split & multi-split systems|Cassette & ducted systems|Under-ceiling & VRV/VRF systems|Window air conditioners|Cold & freezer rooms|Display fridges|Ventilation, extraction & ducting|Re-gassing, cleaning & servicing"},
-      {id:uid(),type:"services",title:"Portable Sanitation Solutions",text:"Standard & flush portable toilets|VIP luxury toilet trailers|2-in-1 & 4-in-1 units with basins|Wheelchair-friendly facilities|Handwash basins|Portable showers|Urinal stands|Weekly cleaning & sanitising|Waste removal|Construction, events, weddings & funerals"},
-      {id:uid(),type:"values",title:"Our Values",text:"Integrity|Professionalism|Reliability|Customer Satisfaction"},
-      {id:uid(),type:"text",title:"Service Areas & Clients",text:"We provide services across Gauteng, North West and Limpopo, including Soshanguve, Tembisa, Newclare, Rustenburg, Pretoria and surrounding areas. Our target clients include homes, offices, schools, clinics, retail shops, construction sites, mines, events companies and municipalities."},
-      {id:uid(),type:"text",title:"Why Choose Solmari",text:"Same-day service in selected service areas|Certified technicians and trade-tested personnel|24/7 emergency assistance|Affordable rates and free quotations|Warranty on workmanship|Compliance information can be provided where applicable"},
-      {id:uid(),type:"text",title:"Contact Us",text:"Phone / WhatsApp: 070 779 4667\nEmail: [Email to be added]\nAddress: [Address to be added]\nOperating Hours: Monday–Saturday 07:00–19:00 | Sunday: Emergency Service"},
-    ];
-    const d={id:uid(),name:"SOLMARI Air Tech & Sanitation — Company Profile",type:"profile",template:"modern",blocks,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-    persist([...docs,d]);setActiveId(d.id);setType("profile");setSelected(blocks[0].id);return;
-  }
-  if(!active){create("profile");return;} const blocks=active.blocks.map((b,i)=>i===0?{...b,text:p}:b);updateDoc({name:p.slice(0,45),blocks})};
- const addBlock=()=>{const b={id:uid(),type:"text",title:"New Section",text:"Click this section to edit it."};updateBlocks([...(active?.blocks||[]),b]);setSelected(b.id)};
+ const generate=()=>{
+  const p=prompt.trim(); if(!p)return;
+  const info=parseCompanyPrompt(p);
+  const generated=createProfileFromInfo(info);
+  saveCompany(generated.company);
+  persist([...docs,generated.doc]);
+  setActiveId(generated.doc.id);setType("profile");setTemplate(generated.doc.template);setSelected(generated.doc.blocks[0].id);
+ }; const addBlock=()=>{const b={id:uid(),type:"text",title:"New Section",text:"Click this section to edit it."};updateBlocks([...(active?.blocks||[]),b]);setSelected(b.id)};
  const move=(id,dir)=>{const a=[...(active?.blocks||[])],i=a.findIndex(x=>x.id===id),j=i+dir;if(i<0||j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];updateBlocks(a)};
  const updateBlock=(id,patch)=>updateBlocks(active.blocks.map(b=>b.id===id?{...b,...patch}:b));
  const removeBlock=id=>updateBlocks(active.blocks.filter(b=>b.id!==id));
@@ -65,6 +53,43 @@ export default function CompanyDocuments(){
   </div>
   {active&&<div className="mobile-save no-print"><button onClick={exportPDF}><Download size={16}/> Download PDF</button></div>}
  </div>
+}
+
+function clean(v){return (v||"").replace(/^[-•*]+\\s*/,"").replace(/\\s+/g," ").trim()}
+function extractField(text,labels){
+ const lines=text.split(/\\r?\\n/).map(clean).filter(Boolean);
+ for(const line of lines){for(const label of labels){const m=line.match(new RegExp("^"+label.replace(/[.*+?^{}()|[\\]\\\\]/g,"\\\\$&")+"\\s*[:\\-]\\s*(.+)$","i"));if(m)return clean(m[1]);}}
+ return "";
+}
+function section(text,names){
+ const lines=text.split(/\\r?\\n/);let on=false,out=[];
+ for(const raw of lines){const line=clean(raw);if(!line)continue;
+  if(names.some(n=>new RegExp("^"+n+"\\s*:?[ ]*$","i").test(line))){on=true;continue;}
+  if(on&&/^[A-Z][A-Za-z &/\\-]{2,45}:?$/.test(line)&&!line.includes("http"))break;
+  if(on)out.push(line);
+ } return out;
+}
+function parseCompanyPrompt(text){
+ const lines=text.split(/\\r?\\n/).map(clean).filter(Boolean);
+ let name=extractField(text,["company name","business name","name","company"]);
+ if(!name)name=lines.find(x=>/\\b(PTY|LTD|CC|INC|LLC|LIMITED|SOLUTIONS|SERVICES|TRADING)\\b/i.test(x))||"Company Name";
+ name=name.replace(/^(company name|business name|name)\\s*[:\\-]\\s*/i,"").trim();
+ return {name,tagline:extractField(text,["tagline","slogan"]),registration:extractField(text,["registration","registration number","reg no","company registration"]),phone:extractField(text,["phone","telephone","tel","mobile","whatsapp","contact"]),email:extractField(text,["email","email address"]),address:extractField(text,["address","physical address","location"]),website:extractField(text,["website","web"]),ownership:extractField(text,["ownership","ownership status"]),hours:extractField(text,["operating hours","business hours","hours"]),mission:extractField(text,["mission"]),vision:extractField(text,["vision"]),values:section(text,["values","core values"]).join("|"),about:section(text,["about us","about","company overview","profile","introduction"]).join(" "),serviceLines:section(text,["services","our services","products and services","service offering"]),areas:section(text,["service areas","areas served","coverage"]).join(", "),clients:section(text,["target market","target clients","clients","market"]).join(", "),why:section(text,["why choose us","why choose","key strengths","advantages"]),industries:section(text,["industries","sectors"]),raw:text};
+}
+function createProfileFromInfo(info){
+ const serviceItems=(info.serviceLines.length?info.serviceLines:info.raw.split(/[,;|]/).map(clean).filter(x=>x.length>2&&x.length<90).slice(0,12));
+ const blocks=[{id:uid(),type:"hero",title:"COMPANY PROFILE",text:info.tagline||"Professional solutions for modern businesses."},{id:uid(),type:"text",title:"About Us",text:info.about||((info.name)+" is a professional business committed to delivering quality products and services to its customers.")}];
+ if(info.mission||info.vision)blocks.push({id:uid(),type:"columns",title:"Mission & Vision",text:(info.mission||"Our mission is to deliver dependable, customer-focused solutions.")+"|"+(info.vision||"Our vision is to build a trusted and sustainable business.")});
+ if(serviceItems.length)blocks.push({id:uid(),type:"services",title:"Our Services",text:serviceItems.join("|")});
+ if(info.industries)blocks.push({id:uid(),type:"text",title:"Industries & Sectors",text:info.industries});
+ if(info.areas||info.clients)blocks.push({id:uid(),type:"text",title:"Market & Service Areas",text:[info.areas&&("Service Areas: "+info.areas),info.clients&&("Target Clients: "+info.clients)].filter(Boolean).join("\n\n")});
+ if(info.values)blocks.push({id:uid(),type:"values",title:"Our Values",text:info.values});
+ if(info.why.length)blocks.push({id:uid(),type:"services",title:"Why Choose Us",text:info.why.join("|")});
+ blocks.push({id:uid(),type:"text",title:"Company Details",text:[info.registration&&("Registration: "+info.registration),info.ownership&&("Ownership: "+info.ownership),info.hours&&("Operating Hours: "+info.hours)].filter(Boolean).join("\n")||"Company information can be updated from the Design & Content panel."});
+ blocks.push({id:uid(),type:"text",title:"Contact Us",text:[info.phone&&("Phone / WhatsApp: "+info.phone),info.email&&("Email: "+info.email),info.address&&("Address: "+info.address),info.website&&("Website: "+info.website)].filter(Boolean).join("\n")||"Contact details to be added."});
+ const doc={id:uid(),name:info.name+" — Company Profile",type:"profile",template:"modern",blocks,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+ const company={...defaults,name:info.name,tagline:info.tagline||"",registration:info.registration||"",address:info.address||"",phone:info.phone||"",email:info.email||"",website:info.website||"",services:serviceItems.join(", "),primary:"#174ea6",secondary:"#e31b23",font:"Arial"};
+ return {doc,company};
 }
 
 function BlockEditor({block,update}){return <div className="prop-section"><strong>Edit selected section</strong><label>Heading<input value={block.title||""} onChange={e=>update({title:e.target.value})}/></label><label>Content<textarea value={block.text||""} onChange={e=>update({text:e.target.value})}/></label><small>Use each line as a separate item in service/value sections.</small></div>}
