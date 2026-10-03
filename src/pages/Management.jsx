@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, X, Save, Printer } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, X, Save, Printer, FileText } from "lucide-react";
+import CompanyDocuments from "./CompanyDocuments";
 
 const CONFIG = {
   Production: { key:"stylz_ims_production", title:"Production", subtitle:"Track jobs from queue to completion.", fields:[["job","Job / Order","text"],["customer","Customer","text"],["status","Status","select",["Queued","In Production","Quality Check","Ready","Completed"]],["progress","Progress %","number"],["dueDate","Due Date","date"],["assignedTo","Assigned To","text"]] },
@@ -16,7 +17,7 @@ const money=v=>`R ${Number(v||0).toLocaleString("en-ZA",{minimumFractionDigits:2
 function Management({module}){
  const config=CONFIG[module];
  const blank=()=>Object.fromEntries(config.fields.map(([k])=>[k,k==="date"||k==="dueDate"?today():k==="progress"?0:""]));
- const [rows,setRows]=useState(()=>read(config.key)),[search,setSearch]=useState(""),[editing,setEditing]=useState(null),[showForm,setShowForm]=useState(false),[form,setForm]=useState(blank);
+ const [rows,setRows]=useState(()=>read(config.key)),[search,setSearch]=useState(""),[editing,setEditing]=useState(null),[showForm,setShowForm]=useState(false),[form,setForm]=useState(blank),[view,setView]=useState("records");
  useEffect(()=>{localStorage.setItem(config.key,JSON.stringify(rows))},[config.key,rows]);
  const filtered=useMemo(()=>{const q=search.trim().toLowerCase();return q?rows.filter(r=>Object.values(r).some(v=>String(v??"").toLowerCase().includes(q))):rows},[rows,search]);
  const total=rows.reduce((s,r)=>s+Number(r.amount||0),0);
@@ -24,8 +25,9 @@ function Management({module}){
  const openEdit=r=>{setEditing(r);setForm({...blank(),...r});setShowForm(true)};
  const save=e=>{e.preventDefault();if(editing)setRows(a=>a.map(r=>r.id===editing.id?{...form,id:editing.id}:r));else setRows(a=>[...a,{...form,id:Date.now()}]);setShowForm(false);setEditing(null)};
  const remove=id=>{if(window.confirm("Delete this record?"))setRows(a=>a.filter(r=>r.id!==id))};
+ if(view==="documents") return <CompanyDocuments />;
  return <div className="page management-page">
-  <div className="page-header"><div><h1>{config.title}</h1><p>{config.subtitle}</p></div><div style={{display:"flex",gap:10}}><button className="secondary-button" onClick={()=>window.print()}><Printer size={17}/> Print</button><button className="primary-button" onClick={openAdd}><Plus size={18}/> Add {module==="Staff"?"Staff Member":"Record"}</button></div></div>
+  <div className="page-header"><div><h1>{config.title}</h1><p>{config.subtitle}</p></div><div style={{display:"flex",gap:10}}>{module==="Production"&&<button className="secondary-button" onClick={()=>setView("documents")}><FileText size={17}/> Company Profile & Letterhead</button>}<button className="secondary-button" onClick={()=>window.print()}><Printer size={17}/> Print</button><button className="primary-button" onClick={openAdd}><Plus size={18}/> Add {module==="Staff"?"Staff Member":"Record"}</button></div></div>
   <div className="stats-grid"><div className="stat-card"><div className="stat-info"><span>Total Records</span><strong>{rows.length}</strong><small>Saved locally</small></div></div><div className="stat-card"><div className="stat-info"><span>{module==="Payments"||module==="Expenses"?"Total Value":"Active Records"}</span><strong>{module==="Payments"||module==="Expenses"?money(total):rows.filter(r=>r.status!=="Completed"&&r.status!=="Inactive").length}</strong><small>Current data</small></div></div><div className="stat-card"><div className="stat-info"><span>Search Results</span><strong>{filtered.length}</strong><small>Matching records</small></div></div></div>
   <div className="data-panel"><div className="panel-header"><div><h2>{config.title} Records</h2><p>Search, edit or remove records.</p></div><div className="topbar-search"><Search size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder={`Search ${config.title.toLowerCase()}...`}/></div></div>
   {filtered.length===0?<div className="empty-state"><h2>No records yet</h2><p>Add your first record using the button above.</p></div>:<div className="orders-table management-table"><div className="table-header">{config.fields.map(([k,l])=><span key={k}>{l}</span>)}<span>Actions</span></div>{filtered.map(r=><div className="table-row" key={r.id}>{config.fields.map(([k])=><span key={k}>{k==="amount"?money(r[k]):k==="progress"?`${r[k]||0}%`:r[k]||"—"}</span>)}<span style={{display:"flex",gap:6}}><button className="product-edit-button" onClick={()=>openEdit(r)} title="Edit"><Pencil size={15}/></button><button className="product-edit-button" onClick={()=>remove(r.id)} title="Delete"><Trash2 size={15}/></button></span></div>)}</div>}
